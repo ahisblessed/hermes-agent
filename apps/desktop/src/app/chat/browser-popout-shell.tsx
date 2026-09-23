@@ -1,8 +1,9 @@
-import type { CSSProperties } from 'react'
+import { useMemo, type CSSProperties } from 'react'
 
 import { PanelEmpty } from '@/app/overlays/panel'
 import { TITLEBAR_HEIGHT } from '@/app/shell/titlebar'
 import { useI18n } from '@/i18n'
+import { hydrateBrowserPopoutTab } from '@/store/preview'
 import { windowBrowserTabId } from '@/store/windows'
 
 import { PreviewTilePane } from './right-rail/preview'
@@ -15,6 +16,11 @@ import { PreviewTilePane } from './right-rail/preview'
 export function BrowserPopoutShell() {
   const { t } = useI18n()
   const tabId = windowBrowserTabId()
+  // Resolve the window's tab from the persisted store before the pane asks the
+  // rail for it. Nothing here drives `setPreviewScope` (no focused session in
+  // this window), so without this hand-off the pane finds no target and paints
+  // nothing at all (#119850).
+  const tab = useMemo(() => (tabId ? hydrateBrowserPopoutTab(tabId) : null), [tabId])
 
   return (
     <div
@@ -29,9 +35,11 @@ export function BrowserPopoutShell() {
         <div className="pointer-events-none absolute inset-y-0 left-[calc(var(--titlebar-controls-left,14px)+(var(--titlebar-control-size,24px)*2)+0.75rem)] right-[calc(var(--titlebar-tools-right,0.75rem)+0.75rem)] [-webkit-app-region:drag]" />
       </div>
       <div className="relative min-h-0 min-w-0 flex-1 overflow-hidden">
-        {tabId ? (
+        {tabId && tab ? (
           <PreviewTilePane tabId={tabId} />
         ) : (
+          // Blank vessel (no `?tab=`), or a tab that closed while the window
+          // was open — say so rather than leaving a black frame.
           <div className="grid h-full place-items-center">
             <PanelEmpty description={t.preview.web.blankPageBody} icon="globe" />
           </div>

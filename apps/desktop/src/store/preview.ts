@@ -414,6 +414,36 @@ export function adoptPersistedBrowserTab(tabId: string) {
   }
 }
 
+/** Adopt the tab a `?win=browser` pop-out must show, whichever profile bucket
+ *  holds it. That renderer has no focused session to drive `setPreviewScope`,
+ *  so its rail starts empty and `PreviewTilePane` finds no target to hand the
+ *  webview — the window paints a black frame (#119850). Tab ids are minted
+ *  unique, so the id names exactly one bucket. Re-homes the view onto that
+ *  bucket so hand-off commits persist where the tab lives. */
+export function hydrateBrowserPopoutTab(tabId: string): PreviewTab | null {
+  if (!tabId) {
+    return null
+  }
+
+  const current = $previewTabs.get().find(tab => tab.id === tabId)
+
+  if (current) {
+    return current
+  }
+
+  for (const [key, tabs] of Object.entries(tabsByProfile)) {
+    const found = tabs.find(tab => tab.id === tabId)
+
+    if (found) {
+      viewKey = key
+      $previewTabs.set([...tabs])
+      return found
+    }
+  }
+
+  return null
+}
+
 /** Pop the in-app Browser into its own OS window. Shared by the address-bar
  *  glyph and the tab context menu so they cannot drift. */
 export function popOutBrowserTab(tabId: string) {
